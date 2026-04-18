@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Tâches — Cabinet Pro{% endblock %}
+{% block page_title %}Tâches{% endblock %}
+
+{% block content %}
+<div class="table-card">
+  <!-- Filtres -->
+  <form method="get" class="row g-2 mb-3 align-items-end">
+    <div class="col-sm-auto">
+      <select name="statut" class="form-select form-select-sm">
+        <option value="">Tous statuts</option>
+        {% for s in ['En attente','En cours','En révision','Terminée'] %}
+          <option {% if statut == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-auto">
+      <select name="priorite" class="form-select form-select-sm">
+        <option value="">Toutes priorités</option>
+        {% for p in ['Haute','Normale','Basse'] %}
+          <option {% if priorite == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-auto">
+      <select name="client" class="form-select form-select-sm" style="max-width:200px">
+        <option value="">Tous clients</option>
+        {% for c in clients %}
+          <option value="{{ c.id }}" {% if client_id == c.id|string %}selected{% endif %}>{{ c.nom[:30] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-auto">
+      <select name="collab" class="form-select form-select-sm">
+        <option value="">Tous collaborateurs</option>
+        {% for c in collaborateurs %}
+          <option value="{{ c.id }}" {% if collab_id == c.id|string %}selected{% endif %}>{{ c.prenom }} {{ c.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-auto">
+      <div class="form-check form-check-inline mb-0">
+        <input type="checkbox" name="retard" value="1" class="form-check-input" id="retard" {% if retard %}checked{% endif %}>
+        <label class="form-check-label text-danger small" for="retard">En retard</label>
+      </div>
+    </div>
+    <div class="col-sm-auto">
+      <button type="submit" class="btn btn-secondary btn-sm">Filtrer</button>
+      <a href="{{ url_for('taches') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </div>
+    <div class="col-sm-auto ms-auto">
+      <a href="{{ url_for('nouvelle_tache') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle tâche
+      </a>
+    </div>
+  </form>
+
+  <div class="mb-2 text-muted small">{{ taches | length }} tâche(s) affichée(s)</div>
+
+  {% if taches %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Tâche</th><th>Type</th><th>Client</th><th>Collaborateur</th>
+          <th>Exercice</th><th>Échéance</th><th>H. est.</th><th>Priorité</th><th>Statut</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in taches %}
+        <tr class="{% if t.est_en_retard %}table-danger{% elif t.jours_restants != None and t.jours_restants <= 7 %}table-warning{% endif %}">
+          <td style="max-width:220px">
+            <div class="fw-semibold text-truncate">{{ t.titre }}</div>
+            {% if t.description %}<small class="text-muted text-truncate d-block" style="max-width:200px">{{ t.description[:60] }}</small>{% endif %}
+          </td>
+          <td><span class="badge bg-light text-dark">{{ t.type_tache }}</span></td>
+          <td class="small">{{ t.client.nom[:25] if t.client else '—' }}</td>
+          <td class="small">
+            {% if t.collaborateur %}{{ t.collaborateur.prenom }} {{ t.collaborateur.nom }}
+            {% else %}<span class="text-muted">Non assigné</span>{% endif %}
+          </td>
+          <td class="small text-muted">{{ t.exercice or '—' }}</td>
+          <td>
+            {% if t.echeance %}
+              <span class="{% if t.est_en_retard %}text-danger fw-bold{% endif %} small">
+                {{ t.echeance.strftime('%d/%m/%Y') }}
+              </span>
+              {% if t.jours_restants != None %}
+                <br><small class="text-muted">{% if t.est_en_retard %}+{{ (today - t.echeance).days }}j{% else %}J-{{ t.jours_restants }}{% endif %}</small>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td class="small text-muted">{{ t.heures_estimees or '—' }}</td>
+          <td><span class="badge bg-{{ t.badge_priorite }}">{{ t.priorite }}</span></td>
+          <td>
+            <form method="post" action="{{ url_for('changer_statut', id=t.id) }}">
+              <select name="statut" class="form-select form-select-sm py-0" style="width:110px"
+                      onchange="this.form.submit()">
+                {% for s in ['En attente','En cours','En révision','Terminée'] %}
+                  <option {% if t.statut == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td>
+            <a href="{{ url_for('modifier_tache', id=t.id) }}" class="btn btn-outline-secondary btn-sm me-1">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form method="post" action="{{ url_for('supprimer_tache', id=t.id) }}" class="d-inline"
+                  onsubmit="return confirm('Supprimer cette tâche ?')">
+              <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="text-center text-muted py-4">Aucune tâche correspondante.</p>
+  {% endif %}
+</div>
+{% endblock %}

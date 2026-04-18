@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ client.nom }} — Cabinet Pro{% endblock %}
+{% block page_title %}{{ client.nom }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <!-- Infos client -->
+  <div class="col-lg-4">
+    <div class="table-card">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <code class="text-primary fs-6">{{ client.code }}</code>
+          <span class="badge {% if client.statut == 'Actif' %}bg-success{% elif client.statut == 'Prospect' %}bg-info{% else %}bg-secondary{% endif %} ms-2">{{ client.statut }}</span>
+        </div>
+        <span class="badge bg-light text-dark">{{ client.type_client }}</span>
+      </div>
+      <h5 class="fw-bold">{{ client.nom }}</h5>
+      <hr>
+      <ul class="list-unstyled small">
+        {% if client.contact %}
+          <li class="mb-2"><i class="bi bi-person me-2 text-muted"></i>{{ client.contact }}</li>
+        {% endif %}
+        {% if client.email %}
+          <li class="mb-2"><i class="bi bi-envelope me-2 text-muted"></i>
+            <a href="mailto:{{ client.email }}">{{ client.email }}</a></li>
+        {% endif %}
+        {% if client.telephone %}
+          <li class="mb-2"><i class="bi bi-telephone me-2 text-muted"></i>{{ client.telephone }}</li>
+        {% endif %}
+        <li class="mb-2"><i class="bi bi-calendar-check me-2 text-muted"></i>Clôture : {{ client.exercice_fiscal }}</li>
+        <li><i class="bi bi-clock me-2 text-muted"></i>Client depuis : {{ client.date_entree.strftime('%d/%m/%Y') if client.date_entree else '—' }}</li>
+      </ul>
+      {% if client.notes %}
+        <div class="mt-3 p-2 bg-light rounded small">{{ client.notes }}</div>
+      {% endif %}
+      <div class="mt-3 d-grid gap-2">
+        <a href="{{ url_for('modifier_client', id=client.id) }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-pencil me-1"></i>Modifier
+        </a>
+        <a href="{{ url_for('nouvelle_tache', client_id=client.id) }}" class="btn btn-success btn-sm">
+          <i class="bi bi-plus-lg me-1"></i>Ajouter une tâche
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tâches du client -->
+  <div class="col-lg-8">
+    <div class="table-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-semibold mb-0">
+          <i class="bi bi-list-task text-primary me-2"></i>Tâches
+          <span class="badge bg-primary ms-1">{{ taches | length }}</span>
+          {% if client.nb_taches_en_retard > 0 %}
+            <span class="badge bg-danger ms-1">{{ client.nb_taches_en_retard }} en retard</span>
+          {% endif %}
+        </h6>
+      </div>
+
+      {% if taches %}
+      {% set statuts = ['En cours', 'En attente', 'En révision', 'Terminée'] %}
+      {% for s in statuts %}
+        {% set group = taches | selectattr('statut', 'equalto', s) | list %}
+        {% if group %}
+          <h6 class="text-muted small text-uppercase mt-3 mb-2">{{ s }} ({{ group | length }})</h6>
+          {% for t in group %}
+            <div class="border rounded p-2 mb-2 priority-{{ t.priorite | lower }}">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="fw-semibold">{{ t.titre }}</div>
+                  <small class="text-muted">{{ t.type_tache }}
+                    {% if t.exercice %} · {{ t.exercice }}{% endif %}
+                    {% if t.collaborateur %} · {{ t.collaborateur.prenom }} {{ t.collaborateur.nom }}{% endif %}
+                  </small>
+                </div>
+                <div class="text-end">
+                  {% if t.echeance %}
+                    <div class="small {% if t.est_en_retard %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                      {{ t.echeance.strftime('%d/%m/%Y') }}
+                    </div>
+                  {% endif %}
+                  <span class="badge bg-{{ t.badge_statut }} small">{{ t.statut }}</span>
+                </div>
+              </div>
+              {% if t.description %}
+                <div class="small text-muted mt-1">{{ t.description[:100] }}{% if t.description|length > 100 %}…{% endif %}</div>
+              {% endif %}
+              <div class="mt-1 text-end">
+                <a href="{{ url_for('modifier_tache', id=t.id) }}" class="btn btn-outline-secondary btn-sm py-0">
+                  <i class="bi bi-pencil"></i>
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+      {% else %}
+        <p class="text-center text-muted py-3">Aucune tâche pour ce client.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

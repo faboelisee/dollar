@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Rapports — Cabinet Pro{% endblock %}
+{% block page_title %}Rapports & Tableaux de bord{% endblock %}
+
+{% block content %}
+<!-- KPIs globaux -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card text-center">
+      <div class="fs-2 fw-bold text-primary">{{ total_taches }}</div>
+      <div class="text-muted small">Total tâches</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card text-center">
+      <div class="fs-2 fw-bold text-success">{{ taches_terminees }}</div>
+      <div class="text-muted small">Terminées</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card text-center">
+      <div class="fs-2 fw-bold text-danger">{{ taches_retard }}</div>
+      <div class="text-muted small">En retard</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card text-center">
+      <div class="fs-2 fw-bold {% if taux_completion >= 70 %}text-success{% elif taux_completion >= 40 %}text-warning{% else %}text-danger{% endif %}">
+        {{ taux_completion }}%
+      </div>
+      <div class="text-muted small">Taux de completion</div>
+      <div class="progress mt-2" style="height:6px">
+        <div class="progress-bar bg-success" style="width:{{ taux_completion }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <!-- Par type -->
+  <div class="col-lg-5">
+    <div class="table-card h-100">
+      <h6 class="fw-semibold mb-3"><i class="bi bi-pie-chart text-primary me-2"></i>Répartition par type</h6>
+      {% if stats_types %}
+        {% for s in stats_types %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="small fw-semibold">{{ s.type }}</span>
+            <span class="small text-muted">{{ s.terminees }}/{{ s.total }} ({{ s.taux }}%)</span>
+          </div>
+          <div class="progress" style="height:8px">
+            <div class="progress-bar bg-primary" style="width:{{ s.taux }}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted text-center py-3">Aucune donnée.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Tâches en retard -->
+  <div class="col-lg-7">
+    <div class="table-card h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-semibold mb-0 text-danger">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>Tâches en retard ({{ taches_en_retard | length }})
+        </h6>
+        {% if taches_en_retard %}
+        <a href="{{ url_for('taches', retard=1) }}" class="text-decoration-none small">Voir tout →</a>
+        {% endif %}
+      </div>
+      {% if taches_en_retard %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Tâche</th><th>Client</th><th>Collaborateur</th><th>Échéance</th><th>Retard</th></tr></thead>
+          <tbody>
+          {% for t in taches_en_retard[:8] %}
+            <tr>
+              <td class="small fw-semibold">{{ t.titre[:40] }}{% if t.titre|length > 40 %}…{% endif %}</td>
+              <td class="small text-muted">{{ t.client.nom[:20] if t.client else '—' }}</td>
+              <td class="small">{{ t.collaborateur.prenom + ' ' + t.collaborateur.nom if t.collaborateur else '—' }}</td>
+              <td class="small text-danger">{{ t.echeance.strftime('%d/%m/%Y') }}</td>
+              <td><span class="badge bg-danger">+{{ (today - t.echeance).days }}j</span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="text-success text-center py-3"><i class="bi bi-check-circle-fill me-2"></i>Aucune tâche en retard !</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Charge collaborateurs -->
+<div class="table-card mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-semibold mb-0"><i class="bi bi-people-fill text-primary me-2"></i>Rapport collaborateurs</h6>
+    <a href="{{ url_for('export_csv') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-download me-1"></i>Export tâches CSV
+    </a>
+  </div>
+  {% if stats_collabs %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Collaborateur</th><th>Rôle</th><th>Total</th><th>En cours</th>
+          <th>Terminées</th><th>Retard</th><th>H. estimées</th><th>H. réalisées</th><th>Complétion</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in stats_collabs %}
+        <tr>
+          <td class="fw-semibold">{{ s.collab.nom_complet }}</td>
+          <td><span class="badge bg-light text-dark">{{ s.collab.role }}</span></td>
+          <td>{{ s.total }}</td>
+          <td><span class="badge bg-primary">{{ s.en_cours }}</span></td>
+          <td><span class="badge bg-success">{{ s.terminees }}</span></td>
+          <td>
+            {% if s.retard > 0 %}
+              <span class="badge bg-danger">{{ s.retard }}</span>
+            {% else %}
+              <span class="text-success"><i class="bi bi-check"></i></span>
+            {% endif %}
+          </td>
+          <td class="text-muted">{{ s.heures_est | round(1) }}h</td>
+          <td class="text-muted">{{ s.heures_real | round(1) }}h</td>
+          <td>
+            {% set taux = (s.terminees / s.total * 100) | round | int if s.total else 0 %}
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height:6px">
+                <div class="progress-bar bg-success" style="width:{{ taux }}%"></div>
+              </div>
+              <span class="small text-muted" style="min-width:32px">{{ taux }}%</span>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="text-muted text-center py-3">Aucun collaborateur actif.</p>
+  {% endif %}
+</div>
+
+<!-- Rapport clients top 10 + Échéances 30 jours -->
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="table-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-semibold mb-0"><i class="bi bi-building text-primary me-2"></i>Top clients (charge)</h6>
+        <a href="{{ url_for('export_clients_csv') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-download me-1"></i>Export clients CSV
+        </a>
+      </div>
+      {% if stats_clients %}
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light"><tr><th>Client</th><th>Total</th><th>Ouvertes</th><th>Retard</th></tr></thead>
+        <tbody>
+        {% for s in stats_clients %}
+          <tr>
+            <td>
+              <a href="{{ url_for('detail_client', id=s.client.id) }}" class="text-decoration-none small fw-semibold">
+                {{ s.client.nom[:25] }}
+              </a>
+            </td>
+            <td>{{ s.total }}</td>
+            <td><span class="badge bg-primary">{{ s.ouvertes }}</span></td>
+            <td>
+              {% if s.retard > 0 %}<span class="badge bg-danger">{{ s.retard }}</span>
+              {% else %}<span class="text-muted">0</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="text-muted text-center py-3">Aucun client actif.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="table-card">
+      <h6 class="fw-semibold mb-3">
+        <i class="bi bi-calendar-week text-warning me-2"></i>Échéances 30 prochains jours ({{ echeances | length }})
+      </h6>
+      {% if echeances %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Tâche</th><th>Client</th><th>Collaborateur</th><th>Échéance</th><th>J restants</th></tr></thead>
+          <tbody>
+          {% for t in echeances %}
+            <tr class="{% if t.jours_restants != None and t.jours_restants <= 7 %}table-warning{% endif %}">
+              <td class="small fw-semibold">{{ t.titre[:40] }}{% if t.titre|length > 40 %}…{% endif %}</td>
+              <td class="small text-muted">{{ t.client.nom[:20] if t.client else '—' }}</td>
+              <td class="small">{{ t.collaborateur.prenom + ' ' + t.collaborateur.nom if t.collaborateur else '—' }}</td>
+              <td class="small">{{ t.echeance.strftime('%d/%m/%Y') }}</td>
+              <td><span class="badge {% if t.jours_restants <= 7 %}bg-warning text-dark{% else %}bg-light text-dark{% endif %}">
+                J-{{ t.jours_restants }}
+              </span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="text-muted text-center py-3">Aucune échéance dans les 30 prochains jours.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

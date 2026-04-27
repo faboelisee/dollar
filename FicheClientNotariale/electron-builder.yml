@@ -8,6 +8,8 @@ directories:
 
 win:
   icon: assets/icon.ico
+  signingHashAlgorithms: []
+  sign: null
   target:
     - target: nsis
       arch:

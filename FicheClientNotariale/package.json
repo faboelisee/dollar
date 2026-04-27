@@ -1,0 +1,29 @@
+{
+  "name": "fiche-client-notariale",
+  "version": "13.0.0",
+  "description": "Gestion de dossiers notariaux — Cabinet Notarial",
+  "main": "main/main.js",
+  "author": "Cabinet Notarial",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build:portable": "electron-builder --win portable --x64",
+    "generate-key": "node license-tool/generate-key.js",
+    "obfuscate": "javascript-obfuscator main/license.js --output main/license.js --compact true --string-array true --rotate-string-array true --self-defending true",
+    "download-assets": "node scripts/download-assets.js"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "node-machine-id": "^1.1.12"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^24.13.3",
+    "javascript-obfuscator": "^4.1.1"
+  },
+  "build": {
+    "extends": null
+  }
+}

@@ -1,0 +1,4 @@
+node_modules/
+dist/
+assets/fonts/*.woff2
+assets/chart.min.js

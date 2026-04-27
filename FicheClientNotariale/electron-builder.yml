@@ -1,0 +1,45 @@
+appId: ci.notaire.ficheclient
+productName: FicheClientNotariale
+copyright: "Copyright © 2025 Cabinet Notarial"
+
+directories:
+  output: dist
+  buildResources: assets
+
+win:
+  icon: assets/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerLanguages:
+    - French
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: FicheClientNotariale
+  uninstallDisplayName: FicheClientNotariale v13
+
+files:
+  - "main/**"
+  - "renderer/**"
+  - "assets/**"
+  - "package.json"
+  - "!license-tool/**"
+  - "!node_modules/javascript-obfuscator/**"
+  - "!node_modules/electron-builder/**"
+
+compression: maximum
+asar: true
+
+extraResources:
+  - from: assets/
+    to: assets/
+    filter:
+      - "**/*"

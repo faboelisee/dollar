@@ -1,0 +1,661 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Multi-tenant ────────────────────────────────────────────────────────────
+
+model Tenant {
+  id           String         @id @default(uuid())
+  name         String
+  slug         String         @unique
+  plan         PlanType       @default(STARTER)
+  status       TenantStatus   @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  companies    Company[]
+  subscription Subscription?
+}
+
+model Company {
+  id               String            @id @default(uuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  rccm             String?
+  nif              String?
+  address          String?
+  logoUrl          String?
+  currency         Currency          @default(XOF)
+  fiscalYearStart  Int               @default(1)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  branches         Branch[]
+  cashRegisters    CashRegister[]
+  operations       Operation[]
+  categories       Category[]
+  contacts         Contact[]
+  employees        Employee[]
+  bankAccounts     BankAccount[]
+  accountingAccounts AccountingAccount[]
+  journalEntries   JournalEntry[]
+  userCompanyRoles UserCompanyRole[]
+  alerts           Alert[]
+
+  @@index([tenantId])
+}
+
+model Branch {
+  id           String        @id @default(uuid())
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  address      String?
+  type         BranchType    @default(AGENCE)
+  isActive     Boolean       @default(true)
+  cashRegisters CashRegister[]
+  employees    Employee[]
+
+  @@index([companyId])
+}
+
+// ─── Users & Auth ────────────────────────────────────────────────────────────
+
+model User {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  phone             String?           @unique
+  passwordHash      String
+  firstName         String
+  lastName          String
+  avatarUrl         String?
+  isActive          Boolean           @default(true)
+  twoFactorEnabled  Boolean           @default(false)
+  twoFactorSecret   String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  sessions          UserSession[]
+  userCompanyRoles  UserCompanyRole[]
+  auditLogs         AuditLog[]
+  createdOperations Operation[]       @relation("CreatedBy")
+  validatedOperations Operation[]     @relation("ValidatedBy")
+  employees         Employee[]
+}
+
+model Role {
+  id               String            @id @default(uuid())
+  name             String            @unique
+  description      String?
+  isSystem         Boolean           @default(false)
+  permissions      RolePermission[]
+  userCompanyRoles UserCompanyRole[]
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  module          String
+  action          String
+  resource        String           @default("*")
+  rolePermissions RolePermission[]
+
+  @@unique([module, action, resource])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserCompanyRole {
+  id         String   @id @default(uuid())
+  userId     String
+  companyId  String
+  roleId     String
+  branchId   String?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+}
+
+model UserSession {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  ipAddress   String?
+  userAgent   String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  companyId  String?
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  beforeData Json?
+  afterData  Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+}
+
+// ─── Cash Registers ──────────────────────────────────────────────────────────
+
+model CashRegister {
+  id              String                @id @default(uuid())
+  companyId       String
+  company         Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId        String?
+  branch          Branch?               @relation(fields: [branchId], references: [id])
+  name            String
+  type            CashRegisterType      @default(PRINCIPALE)
+  currency        Currency              @default(XOF)
+  minimumBalance  Decimal               @default(0) @db.Decimal(15, 2)
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  operations      Operation[]
+  balances        CashRegisterBalance[]
+  outgoingTransfers Operation[]         @relation("TransferSource")
+  incomingTransfers Operation[]         @relation("TransferTarget")
+
+  @@index([companyId])
+}
+
+model CashRegisterBalance {
+  id                String              @id @default(uuid())
+  cashRegisterId    String
+  cashRegister      CashRegister        @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+  date              DateTime            @db.Date
+  openingBalance    Decimal             @db.Decimal(15, 2)
+  totalInflows      Decimal             @default(0) @db.Decimal(15, 2)
+  totalOutflows     Decimal             @default(0) @db.Decimal(15, 2)
+  theoreticalBalance Decimal            @db.Decimal(15, 2)
+  physicalBalance   Decimal?            @db.Decimal(15, 2)
+  variance          Decimal?            @db.Decimal(15, 2)
+  status            BalanceStatus       @default(OUVERT)
+  closedAt          DateTime?
+  closedByUserId    String?
+  signature         String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([cashRegisterId, date])
+  @@index([cashRegisterId, date(sort: Desc)])
+}
+
+// ─── Operations ──────────────────────────────────────────────────────────────
+
+model Operation {
+  id                  String              @id @default(uuid())
+  companyId           String
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  cashRegisterId      String
+  cashRegister        CashRegister        @relation(fields: [cashRegisterId], references: [id])
+  type                OperationType
+  reference           String              @unique
+  amount              Decimal             @db.Decimal(15, 2)
+  currency            Currency            @default(XOF)
+  exchangeRate        Decimal             @default(1) @db.Decimal(10, 6)
+  amountBaseCurrency  Decimal             @db.Decimal(15, 2)
+  date                DateTime            @db.Date
+  valueDate           DateTime?           @db.Date
+  description         String
+  status              OperationStatus     @default(BROUILLON)
+  paymentMethod       PaymentMethod       @default(ESPECES)
+  categoryId          String
+  category            Category            @relation(fields: [categoryId], references: [id])
+  contactId           String?
+  contact             Contact?            @relation(fields: [contactId], references: [id])
+  employeeId          String?
+  employee            Employee?           @relation(fields: [employeeId], references: [id])
+  bankAccountId       String?
+  bankAccount         BankAccount?        @relation(fields: [bankAccountId], references: [id])
+  targetCashRegisterId String?
+  targetCashRegister  CashRegister?       @relation("TransferTarget", fields: [targetCashRegisterId], references: [id])
+  sourceCashRegister  CashRegister?       @relation("TransferSource", fields: [cashRegisterId], references: [id])
+  attachments         Json                @default("[]")
+  journalEntryId      String?
+  journalEntry        JournalEntry?       @relation(fields: [journalEntryId], references: [id])
+  createdById         String
+  createdBy           User                @relation("CreatedBy", fields: [createdById], references: [id])
+  validatedById       String?
+  validatedBy         User?               @relation("ValidatedBy", fields: [validatedById], references: [id])
+  validatedAt         DateTime?
+  cancelledById       String?
+  cancelledAt         DateTime?
+  cancelReason        String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  validations         OperationValidation[]
+
+  @@index([companyId, date(sort: Desc)])
+  @@index([cashRegisterId, date(sort: Desc)])
+  @@index([status])
+  @@index([contactId])
+  @@index([companyId, status])
+}
+
+model OperationValidation {
+  id          String          @id @default(uuid())
+  operationId String
+  operation   Operation       @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  level       Int             @default(1)
+  validatorId String
+  action      ValidationAction
+  comment     String?
+  createdAt   DateTime        @default(now())
+
+  @@index([operationId])
+}
+
+// ─── Categories ──────────────────────────────────────────────────────────────
+
+model Category {
+  id             String       @id @default(uuid())
+  companyId      String
+  company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parentId       String?
+  parent         Category?    @relation("CategoryTree", fields: [parentId], references: [id])
+  children       Category[]   @relation("CategoryTree")
+  name           String
+  type           CategoryType
+  accountingCode String?
+  color          String       @default("#2E86AB")
+  icon           String       @default("tag")
+  isSystem       Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  operations     Operation[]
+
+  @@index([companyId])
+  @@index([parentId])
+}
+
+// ─── Contacts ────────────────────────────────────────────────────────────────
+
+model Contact {
+  id             String         @id @default(uuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type           ContactType
+  name           String
+  rccm           String?
+  nif            String?
+  email          String?
+  phone          String?
+  whatsapp       String?
+  address        String?
+  creditLimit    Decimal?       @db.Decimal(15, 2)
+  paymentDelay   Int?
+  isActive       Boolean        @default(true)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  operations     Operation[]
+  balance        ContactBalance?
+
+  @@index([companyId, type])
+}
+
+model ContactBalance {
+  id               String   @id @default(uuid())
+  contactId        String   @unique
+  contact          Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  advanceBalance   Decimal  @default(0) @db.Decimal(15, 2)
+  receivableBalance Decimal @default(0) @db.Decimal(15, 2)
+  payableBalance   Decimal  @default(0) @db.Decimal(15, 2)
+  updatedAt        DateTime @updatedAt
+}
+
+// ─── Employees ───────────────────────────────────────────────────────────────
+
+model Employee {
+  id           String     @id @default(uuid())
+  companyId    String
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId     String?
+  branch       Branch?    @relation(fields: [branchId], references: [id])
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id])
+  employeeCode String
+  firstName    String
+  lastName     String
+  position     String?
+  department   String?
+  bankRib      String?
+  isActive     Boolean    @default(true)
+  hireDate     DateTime   @db.Date
+  createdAt    DateTime   @default(now())
+  advances     Advance[]
+  operations   Operation[]
+
+  @@unique([companyId, employeeCode])
+  @@index([companyId])
+}
+
+model Advance {
+  id                 String        @id @default(uuid())
+  companyId          String
+  employeeId         String
+  employee           Employee      @relation(fields: [employeeId], references: [id])
+  amount             Decimal       @db.Decimal(15, 2)
+  reason             String
+  status             AdvanceStatus @default(DEMANDE)
+  repaymentSchedule  Json?
+  repaidAmount       Decimal       @default(0) @db.Decimal(15, 2)
+  approvedById       String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([employeeId])
+  @@index([companyId, status])
+}
+
+// ─── Bank ────────────────────────────────────────────────────────────────────
+
+model BankAccount {
+  id             String           @id @default(uuid())
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bankName       String
+  accountNumber  String
+  rib            String?
+  iban           String?
+  currency       Currency         @default(XOF)
+  currentBalance Decimal          @default(0) @db.Decimal(15, 2)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  transactions   BankTransaction[]
+  operations     Operation[]
+
+  @@index([companyId])
+}
+
+model BankTransaction {
+  id            String      @id @default(uuid())
+  bankAccountId String
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  date          DateTime    @db.Date
+  description   String
+  amount        Decimal     @db.Decimal(15, 2)
+  type          String
+  reference     String?
+  isReconciled  Boolean     @default(false)
+  operationId   String?
+  createdAt     DateTime    @default(now())
+
+  @@index([bankAccountId, date(sort: Desc)])
+}
+
+// ─── Accounting ──────────────────────────────────────────────────────────────
+
+model AccountingAccount {
+  id        String           @id @default(uuid())
+  companyId String
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  type      AccountType
+  class     Int
+  isSystem  Boolean          @default(false)
+  isActive  Boolean          @default(true)
+  parentId  String?
+  parent    AccountingAccount?  @relation("AccountTree", fields: [parentId], references: [id])
+  children  AccountingAccount[] @relation("AccountTree")
+  journalLines JournalLine[]
+
+  @@unique([companyId, code])
+  @@index([companyId, class])
+}
+
+model JournalEntry {
+  id          String        @id @default(uuid())
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  journalType JournalType
+  date        DateTime      @db.Date
+  reference   String
+  description String
+  isBalanced  Boolean       @default(false)
+  createdById String
+  createdAt   DateTime      @default(now())
+  lines       JournalLine[]
+  operations  Operation[]
+
+  @@index([companyId, date(sort: Desc)])
+  @@index([journalType])
+}
+
+model JournalLine {
+  id             String            @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry      @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        AccountingAccount @relation(fields: [accountId], references: [id])
+  debit          Decimal           @default(0) @db.Decimal(15, 2)
+  credit         Decimal           @default(0) @db.Decimal(15, 2)
+  description    String?
+  contactId      String?
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+// ─── Alerts ──────────────────────────────────────────────────────────────────
+
+model Alert {
+  id        String      @id @default(uuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId    String?
+  type      AlertType
+  severity  AlertSeverity
+  message   String
+  metadata  Json?
+  isRead    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([companyId, isRead, createdAt(sort: Desc)])
+}
+
+// ─── SaaS ────────────────────────────────────────────────────────────────────
+
+model Plan {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  maxCompanies  Int
+  maxUsers      Int
+  maxCaisses    Int
+  features      Json
+  monthlyPrice  Decimal        @db.Decimal(12, 2)
+  annualPrice   Decimal        @db.Decimal(12, 2)
+  currency      Currency       @default(XOF)
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id            String             @id @default(uuid())
+  tenantId      String             @unique
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId        String
+  plan          Plan               @relation(fields: [planId], references: [id])
+  status        SubscriptionStatus @default(TRIAL)
+  startedAt     DateTime           @default(now())
+  expiresAt     DateTime
+  autoRenew     Boolean            @default(true)
+  paymentMethod String?
+  invoices      Invoice[]
+}
+
+model Invoice {
+  id             String          @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription    @relation(fields: [subscriptionId], references: [id])
+  amount         Decimal         @db.Decimal(12, 2)
+  currency       Currency        @default(XOF)
+  status         InvoiceStatus   @default(PENDING)
+  paidAt         DateTime?
+  pdfUrl         String?
+  createdAt      DateTime        @default(now())
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Currency {
+  XOF
+  EUR
+  USD
+  GBP
+  XAF
+}
+
+enum PlanType {
+  STARTER
+  BUSINESS
+  ENTERPRISE
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum BranchType {
+  SIEGE
+  AGENCE
+  SUCCURSALE
+  BOUTIQUE
+}
+
+enum CashRegisterType {
+  PRINCIPALE
+  ANNEXE
+  COFFRE
+}
+
+enum BalanceStatus {
+  OUVERT
+  EN_CLOTURE
+  CLOTURE
+}
+
+enum OperationType {
+  ENCAISSEMENT
+  DECAISSEMENT
+  AVANCE
+  DEPENSE
+  RECETTE
+  TRANSFERT
+}
+
+enum OperationStatus {
+  BROUILLON
+  EN_ATTENTE
+  VALIDE
+  ANNULE
+  REJETE
+}
+
+enum PaymentMethod {
+  ESPECES
+  ORANGE_MONEY
+  MTN_MOMO
+  WAVE
+  MOOV_MONEY
+  CHEQUE
+  VIREMENT
+  CARTE
+}
+
+enum CategoryType {
+  CHARGE
+  PRODUIT
+  NEUTRE
+}
+
+enum ContactType {
+  CLIENT
+  FOURNISSEUR
+  EMPLOYE
+  AUTRE
+}
+
+enum AdvanceStatus {
+  DEMANDE
+  APPROUVE
+  REFUSE
+  REMBOURSE
+  PARTIELLEMENT_REMBOURSE
+}
+
+enum AccountType {
+  ACTIF
+  PASSIF
+  CHARGE
+  PRODUIT
+}
+
+enum JournalType {
+  CAISSE
+  BANQUE
+  ACHATS
+  VENTES
+  OPERATIONS_DIVERSES
+}
+
+enum ValidationAction {
+  VALIDE
+  REJETE
+}
+
+enum AlertType {
+  SOLDE_BAS
+  OPERATION_EN_ATTENTE
+  ECHEANCE
+  ECART_CAISSE
+  BUDGET_DEPASSE
+  CONNEXION_INHABITUELLE
+  AVANCE_NON_JUSTIFIEE
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}

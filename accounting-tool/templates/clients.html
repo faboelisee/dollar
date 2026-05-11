@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Clients — Cabinet Pro{% endblock %}
+{% block page_title %}Clients{% endblock %}
+
+{% block content %}
+<div class="table-card">
+  <div class="d-flex flex-wrap gap-2 justify-content-between align-items-end mb-3">
+    <form method="get" class="d-flex gap-2 flex-wrap align-items-end">
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+             placeholder="Rechercher nom ou code…" style="width:220px">
+      <select name="statut" class="form-select form-select-sm" style="width:130px">
+        <option value="">Tous statuts</option>
+        {% for s in ['Actif','Inactif','Prospect'] %}
+          <option {% if statut == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-secondary btn-sm">Filtrer</button>
+      {% if q or statut %}<a href="{{ url_for('clients') }}" class="btn btn-outline-secondary btn-sm">Réinitialiser</a>{% endif %}
+    </form>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('export_clients_csv') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i>CSV
+      </a>
+      <a href="{{ url_for('nouveau_client') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouveau client
+      </a>
+    </div>
+  </div>
+
+  {% if clients %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Code</th><th>Nom</th><th>Type</th><th>Contact</th>
+          <th>Exercice</th><th>Tâches ouvertes</th><th>Statut</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in clients %}
+        <tr>
+          <td><code class="text-primary">{{ c.code }}</code></td>
+          <td>
+            <a href="{{ url_for('detail_client', id=c.id) }}" class="fw-semibold text-decoration-none">{{ c.nom }}</a>
+          </td>
+          <td><span class="badge bg-light text-dark">{{ c.type_client }}</span></td>
+          <td class="text-muted small">{{ c.contact or '—' }}</td>
+          <td class="text-muted small">{{ c.exercice_fiscal or '—' }}</td>
+          <td>
+            {% if c.nb_taches_ouvertes > 0 %}
+              <span class="badge bg-primary">{{ c.nb_taches_ouvertes }}</span>
+              {% if c.nb_taches_en_retard > 0 %}
+                <span class="badge bg-danger ms-1">{{ c.nb_taches_en_retard }} retard</span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge {% if c.statut == 'Actif' %}bg-success{% elif c.statut == 'Prospect' %}bg-info{% else %}bg-secondary{% endif %}">
+              {{ c.statut }}
+            </span>
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('detail_client', id=c.id) }}" class="btn btn-outline-primary btn-sm me-1" title="Voir">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="{{ url_for('modifier_client', id=c.id) }}" class="btn btn-outline-secondary btn-sm me-1" title="Modifier">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form method="post" action="{{ url_for('supprimer_client', id=c.id) }}" class="d-inline"
+                  onsubmit="return confirm('Supprimer {{ c.nom }} et toutes ses tâches ?')">
+              <button class="btn btn-outline-danger btn-sm" title="Supprimer"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="text-center text-muted py-4">Aucun client trouvé.</p>
+  {% endif %}
+</div>
+{% endblock %}

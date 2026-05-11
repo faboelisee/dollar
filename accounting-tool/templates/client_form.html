@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{% if client %}Modifier{% else %}Nouveau{% endif %} client — Cabinet Pro{% endblock %}
+{% block page_title %}{% if client %}Modifier {{ client.nom }}{% else %}Nouveau client{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="table-card">
+      <form method="post">
+        <div class="row g-3">
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold">Code client <span class="text-danger">*</span></label>
+            <input type="text" name="code" class="form-control" required maxlength="20"
+                   value="{{ client.code if client else form.get('code','') }}" placeholder="CLI001">
+          </div>
+          <div class="col-sm-8">
+            <label class="form-label fw-semibold">Nom / Raison sociale <span class="text-danger">*</span></label>
+            <input type="text" name="nom" class="form-control" required maxlength="150"
+                   value="{{ client.nom if client else form.get('nom','') }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Type</label>
+            <select name="type_client" class="form-select">
+              {% for t in ['TPE','PME','GE','Association','Autre'] %}
+                <option {% if (client and client.type_client == t) or (not client and form.get('type_client','PME') == t) %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Statut</label>
+            <select name="statut" class="form-select">
+              {% for s in ['Actif','Inactif','Prospect'] %}
+                <option {% if (client and client.statut == s) or (not client and s == 'Actif') %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Contact</label>
+            <input type="text" name="contact" class="form-control"
+                   value="{{ client.contact if client else '' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Email</label>
+            <input type="email" name="email" class="form-control"
+                   value="{{ client.email if client else '' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Téléphone</label>
+            <input type="text" name="telephone" class="form-control"
+                   value="{{ client.telephone if client else '' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Clôture exercice fiscal</label>
+            <input type="text" name="exercice_fiscal" class="form-control" placeholder="31/12"
+                   value="{{ client.exercice_fiscal if client else '31/12' }}">
+            <small class="text-muted">Format : JJ/MM</small>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Notes</label>
+            <textarea name="notes" class="form-control" rows="3">{{ client.notes if client else '' }}</textarea>
+          </div>
+        </div>
+        <div class="mt-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>{% if client %}Enregistrer{% else %}Créer le client{% endif %}
+          </button>
+          <a href="{{ url_for('clients') }}" class="btn btn-outline-secondary">Annuler</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

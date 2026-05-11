@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord — Cabinet Pro{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card d-flex align-items-center gap-3">
+      <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-people-fill"></i></div>
+      <div>
+        <div class="fs-3 fw-bold">{{ stats.nb_clients }}</div>
+        <div class="text-muted small">Clients actifs</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card d-flex align-items-center gap-3">
+      <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-person-badge-fill"></i></div>
+      <div>
+        <div class="fs-3 fw-bold">{{ stats.nb_collaborateurs }}</div>
+        <div class="text-muted small">Collaborateurs</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card d-flex align-items-center gap-3">
+      <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-list-task"></i></div>
+      <div>
+        <div class="fs-3 fw-bold">{{ stats.nb_taches_ouvertes }}</div>
+        <div class="text-muted small">Tâches ouvertes</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card d-flex align-items-center gap-3">
+      <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div>
+        <div class="fs-3 fw-bold text-danger">{{ stats.nb_taches_retard }}</div>
+        <div class="text-muted small">Tâches en retard</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Tâches urgentes -->
+  <div class="col-lg-7">
+    <div class="table-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-semibold mb-0"><i class="bi bi-clock-history text-warning me-2"></i>Prochaines échéances</h6>
+        <a href="{{ url_for('nouvelle_tache') }}" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus-lg me-1"></i>Nouvelle tâche
+        </a>
+      </div>
+      {% if taches_urgentes %}
+      <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Tâche</th><th>Client</th><th>Collaborateur</th><th>Échéance</th><th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for t in taches_urgentes %}
+            <tr class="{% if t.est_en_retard %}table-danger{% elif t.jours_restants != None and t.jours_restants <= 7 %}table-warning{% endif %}">
+              <td>
+                <div class="fw-semibold">{{ t.titre[:45] }}{% if t.titre|length > 45 %}…{% endif %}</div>
+                <small class="text-muted">{{ t.type_tache }}</small>
+              </td>
+              <td><small>{{ t.client.nom[:25] if t.client else '—' }}</small></td>
+              <td><small>{{ t.collaborateur.prenom + ' ' + t.collaborateur.nom if t.collaborateur else '<span class=text-muted>—</span>' | safe }}</small></td>
+              <td>
+                {% if t.echeance %}
+                  <span class="{% if t.est_en_retard %}text-danger fw-bold{% endif %}">
+                    {{ t.echeance.strftime('%d/%m/%Y') }}
+                  </span>
+                  {% if t.est_en_retard %}
+                    <br><small class="text-danger">{{ (today - t.echeance).days }}j retard</small>
+                  {% elif t.jours_restants != None %}
+                    <br><small class="text-muted">J-{{ t.jours_restants }}</small>
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                <span class="badge bg-{{ t.badge_statut }}">{{ t.statut }}</span>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="text-muted text-center py-3">Aucune tâche planifiée.</p>
+      {% endif %}
+      <div class="mt-2 text-end">
+        <a href="{{ url_for('taches') }}" class="text-decoration-none small">Voir toutes les tâches →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charge collaborateurs -->
+  <div class="col-lg-5">
+    <div class="table-card">
+      <h6 class="fw-semibold mb-3"><i class="bi bi-bar-chart text-primary me-2"></i>Charge collaborateurs</h6>
+      {% if charge_collabs %}
+        {% for c in charge_collabs %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1">
+            <div>
+              <span class="fw-semibold">{{ c.nom }}</span>
+              <span class="badge bg-light text-dark ms-1 small">{{ c.role }}</span>
+            </div>
+            <div>
+              <span class="badge bg-primary">{{ c.actives }} tâche(s)</span>
+              {% if c.retard > 0 %}
+                <span class="badge bg-danger ms-1">{{ c.retard }} retard</span>
+              {% endif %}
+            </div>
+          </div>
+          {% if c.actives > 0 %}
+            <div class="progress" style="height:6px">
+              <div class="progress-bar {% if c.retard > 0 %}bg-danger{% else %}bg-primary{% endif %}"
+                   style="width: {{ [c.actives * 10, 100] | min }}%"></div>
+            </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted text-center py-3">Aucun collaborateur actif.</p>
+      {% endif %}
+      <div class="mt-2 text-end">
+        <a href="{{ url_for('collaborateurs') }}" class="text-decoration-none small">Gérer les collaborateurs →</a>
+      </div>
+    </div>
+
+    <!-- Accès rapides -->
+    <div class="table-card mt-3">
+      <h6 class="fw-semibold mb-3"><i class="bi bi-lightning-fill text-warning me-2"></i>Accès rapides</h6>
+      <div class="d-grid gap-2">
+        <a href="{{ url_for('nouveau_client') }}" class="btn btn-outline-primary btn-sm text-start">
+          <i class="bi bi-person-plus me-2"></i>Nouveau client
+        </a>
+        <a href="{{ url_for('nouvelle_tache') }}" class="btn btn-outline-success btn-sm text-start">
+          <i class="bi bi-plus-square me-2"></i>Nouvelle tâche
+        </a>
+        <a href="{{ url_for('taches', retard=1) }}" class="btn btn-outline-danger btn-sm text-start">
+          <i class="bi bi-exclamation-triangle me-2"></i>Tâches en retard
+          {% if stats.nb_taches_retard > 0 %}
+            <span class="badge bg-danger float-end">{{ stats.nb_taches_retard }}</span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('rapports') }}" class="btn btn-outline-secondary btn-sm text-start">
+          <i class="bi bi-file-earmark-bar-graph me-2"></i>Voir les rapports
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

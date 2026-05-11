@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{% if tache %}Modifier{% else %}Nouvelle{% endif %} tâche — Cabinet Pro{% endblock %}
+{% block page_title %}{% if tache %}Modifier la tâche{% else %}Nouvelle tâche{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="table-card">
+      <form method="post">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-semibold">Titre <span class="text-danger">*</span></label>
+            <input type="text" name="titre" class="form-control" required maxlength="200"
+                   value="{{ tache.titre if tache else '' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Type de tâche</label>
+            <select name="type_tache" class="form-select">
+              {% for t in ['Audit','Comptabilité','Fiscalité','Social','Juridique','Autre'] %}
+                <option {% if tache and tache.type_tache == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Exercice</label>
+            <input type="text" name="exercice" class="form-control" placeholder="2024"
+                   value="{{ tache.exercice if tache else '' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Client <span class="text-danger">*</span></label>
+            <select name="client_id" class="form-select" required>
+              <option value="">— Sélectionner —</option>
+              {% for c in clients %}
+                <option value="{{ c.id }}"
+                  {% if (tache and tache.client_id == c.id) or (preselect_client and preselect_client == c.id|string) %}selected{% endif %}>
+                  {{ c.code }} — {{ c.nom }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Collaborateur assigné</label>
+            <select name="collaborateur_id" class="form-select">
+              <option value="">— Non assigné —</option>
+              {% for c in collaborateurs %}
+                <option value="{{ c.id }}" {% if tache and tache.collaborateur_id == c.id %}selected{% endif %}>
+                  {{ c.prenom }} {{ c.nom }} ({{ c.role }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold">Échéance</label>
+            <input type="date" name="echeance" class="form-control"
+                   value="{{ tache.echeance.strftime('%Y-%m-%d') if tache and tache.echeance else '' }}">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold">Priorité</label>
+            <select name="priorite" class="form-select">
+              {% for p in ['Haute','Normale','Basse'] %}
+                <option {% if (tache and tache.priorite == p) or (not tache and p == 'Normale') %}selected{% endif %}>{{ p }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold">Statut</label>
+            <select name="statut" class="form-select">
+              {% for s in ['En attente','En cours','En révision','Terminée'] %}
+                <option {% if (tache and tache.statut == s) or (not tache and s == 'En attente') %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Heures estimées</label>
+            <input type="number" name="heures_estimees" class="form-control" step="0.5" min="0"
+                   value="{{ tache.heures_estimees if tache else 0 }}">
+          </div>
+          {% if tache %}
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Heures réalisées</label>
+            <input type="number" name="heures_realisees" class="form-control" step="0.5" min="0"
+                   value="{{ tache.heures_realisees if tache else 0 }}">
+          </div>
+          {% endif %}
+          <div class="col-12">
+            <label class="form-label fw-semibold">Description</label>
+            <textarea name="description" class="form-control" rows="3">{{ tache.description if tache else '' }}</textarea>
+          </div>
+        </div>
+        <div class="mt-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>{% if tache %}Enregistrer{% else %}Créer la tâche{% endif %}
+          </button>
+          <a href="{{ url_for('taches') }}" class="btn btn-outline-secondary">Annuler</a>
+          {% if tache %}
+            <form method="post" action="{{ url_for('supprimer_tache', id=tache.id) }}" class="d-inline ms-auto"
+                  onsubmit="return confirm('Supprimer cette tâche ?')">
+              <button class="btn btn-outline-danger">
+                <i class="bi bi-trash me-1"></i>Supprimer
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Collaborateurs — Cabinet Pro{% endblock %}
+{% block page_title %}Collaborateurs{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{{ url_for('nouveau_collaborateur') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-person-plus me-1"></i>Nouveau collaborateur
+  </a>
+</div>
+
+<div class="row g-3">
+{% for c in collaborateurs %}
+  <div class="col-sm-6 col-xl-4">
+    <div class="table-card h-100">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold fs-6">{{ c.prenom }} {{ c.nom }}</div>
+          <span class="badge
+            {% if c.role == 'Associé' %}bg-danger
+            {% elif c.role == 'Manager' %}bg-warning text-dark
+            {% elif c.role == 'Senior' %}bg-primary
+            {% else %}bg-secondary{% endif %}">
+            {{ c.role }}
+          </span>
+          {% if not c.actif %}<span class="badge bg-light text-muted ms-1">Inactif</span>{% endif %}
+        </div>
+        <div>
+          <a href="{{ url_for('modifier_collaborateur', id=c.id) }}" class="btn btn-outline-secondary btn-sm me-1">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <form method="post" action="{{ url_for('supprimer_collaborateur', id=c.id) }}" class="d-inline"
+                onsubmit="return confirm('Supprimer {{ c.nom_complet }} ?')">
+            <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+          </form>
+        </div>
+      </div>
+      <hr class="my-2">
+      <ul class="list-unstyled small mb-3">
+        {% if c.email %}
+          <li><i class="bi bi-envelope me-2 text-muted"></i>{{ c.email }}</li>
+        {% endif %}
+        {% if c.telephone %}
+          <li><i class="bi bi-telephone me-2 text-muted"></i>{{ c.telephone }}</li>
+        {% endif %}
+      </ul>
+      <div class="row g-2 text-center">
+        <div class="col-4">
+          <div class="bg-light rounded p-2">
+            <div class="fw-bold text-primary">{{ c.nb_taches_actives }}</div>
+            <div class="text-muted" style="font-size:.7rem">Actives</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="bg-light rounded p-2">
+            <div class="fw-bold {% if c.nb_taches_en_retard > 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ c.nb_taches_en_retard }}
+            </div>
+            <div class="text-muted" style="font-size:.7rem">Retard</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="bg-light rounded p-2">
+            <div class="fw-bold text-secondary">{{ c.taches | length }}</div>
+            <div class="text-muted" style="font-size:.7rem">Total</div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-2 text-end">
+        <a href="{{ url_for('taches', collab=c.id) }}" class="text-decoration-none small">
+          Voir ses tâches →
+        </a>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="col-12">
+    <div class="table-card text-center py-4 text-muted">Aucun collaborateur.</div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}
